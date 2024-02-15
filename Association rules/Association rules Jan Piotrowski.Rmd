@@ -1,0 +1,195 @@
+# Introduction
+
+Association rule mining is a powerful data analytics tool, that searches for interesting relationships or associations between the items in dataset. It can be applied in areas such as marketing, retail, healthcare telecommunication and many others. The outcome of the analysis might be crucial for businesses seeking to optimize their strategies, enhance customer experiences, and make informed decisions.
+
+In this project I will attempt to profile the customers based on their education level as well as based on their relationship status.
+
+```{r}
+library(arules)
+
+data <- read.csv("ifood_df.csv")
+
+which(colSums(is.na(data))>0)
+
+summary(data)
+```
+
+Column Recoding :
+
+```{r}
+#marital status
+data$marital_status <- NA
+
+data$marital_status[data$marital_Divorced == 1] <- "divorced"
+data$marital_status[data$marital_Married== 1] <- "married"
+data$marital_status[data$marital_Single == 1] <- "single"
+data$marital_status[data$marital_Together == 1] <- "together"
+data$marital_status[data$marital_Widow == 1] <- "widow"
+
+#education
+data$education <- NA
+data$education[data$education_2n.Cycle == 1] <- "2nd cycle"
+data$education[data$education_Basic == 1] <- "basic"
+data$education[data$education_Graduation == 1] <- "bachelor degree"
+data$education[data$education_Master == 1] <- "master degree"
+data$education[data$education_PhD == 1] <- "PhD"
+
+#income
+data$Income <- ifelse(data$Income < 40000, "0-40K", ifelse(data$Income < 80000, "40-80K", ifelse(data$Income < 120000, "Above 80K")))
+
+#Products
+
+data$MntWines <- ifelse(data$MntWines < 150, "less than $150 on wine", ifelse(data$MntWines < 300, "$150-$300 on wine", ifelse(data$MntWines < 600, "$300-$600 on wine", ifelse(data$MntWines < 1500, "More than $600 on wine"))))
+
+data$MntFruits <- ifelse(data$MntFruits < 20, "less than $20 on fruit", ifelse(data$MntFruits < 40, "$20-$40 on fruit", ifelse(data$MntFruits < 200, "more than $40 on fruit")))
+
+data$MntMeatProducts <- ifelse(data$MntMeatProducts < 50, "less than $50 on meat", ifelse(data$MntMeatProducts < 150, "$50-$150 on meat", ifelse(data$MntMeatProducts < 250, "$150-$250 on meat", ifelse(data$MntMeatProducts < 1750, "more than $250 on meat"))))
+
+data$MntFishProducts <- ifelse(data$MntFishProducts < 50, "less than $50 on fish", ifelse(data$MntFishProducts < 100, "$50-$100 on fish", ifelse(data$MntFishProducts < 260, "more than $100 on fish")))                         
+
+data$MntSweetProducts <- ifelse(data$MntSweetProducts < 30, "less than $30 on sweets", ifelse(data$MntSweetProducts < 263, "more than $30 on sweets"))
+
+data$MntGoldProds <- ifelse(data$MntGoldProds < 30, "less than $30 on gold products", ifelse(data$MntGoldProds < 100, "$30-$100 on gold products", ifelse(data$MntGoldProds < 325, "more than $100 on gold products")))
+
+#kids and teens
+
+data$Kidhome[data$Kidhome == 0] <- "zero small children"
+data$Kidhome[data$Kidhome == 1] <- "one small child"
+data$Kidhome[data$Kidhome == 2] <- "two small children"
+
+data$Teenhome[data$Teenhome == 0] <- "zero teenagers"
+data$Teenhome[data$Teenhome == 1] <- "one teenager"
+data$Teenhome[data$Teenhome == 2] <- "two teenagers"
+
+
+data$kids <- NA
+
+data$kids[data$Kidhome == "one small child" | data$Teenhome == "one teenager"] <- "have kids"
+data$kids[data$Kidhome == "two small children" | data$Teenhome == "two teenagers"] <- "have kids"
+data$kids[data$Kidhome == "zero small children" & data$Teenhome == "zero teenagers"] <- "no kids"
+
+#age
+
+data$Age <- ifelse(data$Age < 31, "24-30 years old", ifelse(data$Age < 51, "31-50 years old", ifelse(data$Age < 61, "51-60 years old", ifelse(data$Age < 81, "61-80 years old"))))
+
+```
+
+Limiting the data
+
+```{r}
+data <- data[,c(1,5:9,25,40,41,42)]
+
+summary(data)
+```
+
+Summary :
+
+```{r}
+table(data$Income)
+
+table(data$Age)
+
+table(data$marital_status)
+
+table(data$education)
+
+table(data$kids)
+```
+
+```{r}
+write.csv(data, file = "association_rules.csv")
+
+data1 <- read.transactions("association_rules.csv", format = "basket", sep = ",", skip = 1)
+```
+
+# Rule mining
+
+I will set the support level to be at least 0.01 and use the threshold for confidence of 0.5 to assume the rule can be reliable. 
+
+Education:
+
+```{r}
+rule_basic <- apriori(data = data1, parameter=list(supp=0.01, conf=0.01),appearance=list(default="lhs", rhs="basic"), control=list(verbose=F))
+rule_basic1<-sort(rule_basic, by="confidence", decreasing=TRUE)
+inspect(head(rule_basic1))
+```
+
+Not very significant rules for basic education
+
+```{r}
+rule_2nd_cycle <- apriori(data = data1, parameter=list(supp=0.01, conf=0.01),appearance=list(default="lhs", rhs="2nd cycle"), control=list(verbose=F))
+rule_2nd_cycle1<-sort(rule_2nd_cycle, by="confidence", decreasing=TRUE)
+inspect(head(rule_2nd_cycle1))
+```
+
+Not very significant rules for 2^nd^ education as well
+
+```{r}
+rule_bachelor <- apriori(data = data1, parameter=list(supp=0.01, conf=0.85),appearance=list(default="lhs", rhs="bachelor degree"), control=list(verbose=F))
+rule_bachelor1<-sort(rule_bachelor, by="confidence", decreasing=TRUE)
+inspect(head(rule_bachelor1))
+```
+
+According to rule number one, people with bachelor degree are married, spend 300-600 dollars on wine and more than 250 dollars on meat. Second rule says people with bachelor degree earn between 40-80K, are in age group of 61-80, spend more than \$100 on fish products, more than \$30 on sweets and more than \$40 on fruits.
+
+```{r}
+rule_master <- apriori(data = data1, parameter=list(supp=0.01, conf=0.01),appearance=list(default="lhs", rhs="master degree"), control=list(verbose=F))
+rule_master1<-sort(rule_master, by="confidence", decreasing=TRUE)
+inspect(head(rule_master1))
+```
+
+For the master degree, the rules are again not very strong, with the highest confidence of 0.33, thus not very reliable
+
+```{r}
+rule_PhD <- apriori(data = data1, parameter=list(supp=0.01, conf=0.5),appearance=list(default="lhs", rhs="PhD"), control=list(verbose=F))
+rule_PhD1<-sort(rule_PhD, by="confidence", decreasing=TRUE)
+inspect(head(rule_PhD1))
+```
+
+For the Phd, there are 4 rules that meet the threshold for confidence of 0.5. First rule says the people with PhD earn between 40-80K, spend less than \$50 on fish products and are in relationship (but not married). Interestingly enough, all 4 rules have one thing in common and that is spending habit on wine. Apparently PhD makes people fall in love with wine.
+
+Relationship status:
+
+```{r}
+rule_divorced <- apriori(data = data1, parameter=list(supp=0.01, conf=0.01),appearance=list(default="lhs", rhs="divorced"), control=list(verbose=F))
+rule_divorced1<-sort(rule_divorced, by="confidence", decreasing=TRUE)
+inspect(head(rule_divorced1))
+```
+
+Confidence level to low to consider these rules
+
+```{r}
+rule_married <- apriori(data = data1, parameter=list(supp=0.01, conf=0.5),appearance=list(default="lhs", rhs="married"), control=list(verbose=F))
+rule_married1<-sort(rule_married, by="confidence", decreasing=TRUE)
+inspect(head(rule_married1))
+```
+
+For the 4 best rules, spending habbit on wine, fruits and fish product is common. What is more, rules from 3 to 6 have also \'have kids\' in common as well as either age or income. Generally, second best rule says that married people spend between \$300-600 on wine, are between 31-50 years old, earn between \$40-80K and don\'t spend much on fruits and fish.
+
+```{r}
+rule_single <- apriori(data = data1, parameter=list(supp=0.01, conf=0.5),appearance=list(default="lhs", rhs="single"), control=list(verbose=F))
+rule_single1<-sort(rule_single, by="confidence", decreasing=TRUE)
+inspect(head(rule_single1))
+```
+
+According to these two rules, single people are between 24-30 years old and have no kids
+
+```{r}
+rule_together <- apriori(data = data1, parameter=list(supp=0.01, conf=0.48),appearance=list(default="lhs", rhs="together"), control=list(verbose=F))
+rule_together1<-sort(rule_together, by="confidence", decreasing=TRUE)
+inspect(head(rule_together1))
+```
+
+There is only one rule that hits the threshold for confidence of 0.5 and says that people who are in relationship earn \$0-40K, are 61-80 years old with bachelor degree and don\'t spend much on wine, fruits or sweets.
+
+```{r}
+rule_widow <- apriori(data = data1, parameter=list(supp=0.01, conf=0.01),appearance=list(default="lhs", rhs="widow"), control=list(verbose=F))
+rule_widow1<-sort(rule_widow, by="confidence", decreasing=TRUE)
+inspect(head(rule_widow1))
+```
+
+Yet again, the strongest rule for widowed people has confidence of 0.08, thus not allowing for a meaningful interpretation
+
+# Conclusions
+
+In this project I tried to provide a profile of a person based on the relationship status and education level. Not all rules turned out to be relevant (due to uneven distribution of education level and rel. status) but there were a few interesting patterns spotted. There is a lot of room for further research in this area, with possibly more profiling variables to increase the accuracy.
