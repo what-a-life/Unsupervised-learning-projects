@@ -1,1 +1,1 @@
-Clustering-project
+Clustering project on wine quality
