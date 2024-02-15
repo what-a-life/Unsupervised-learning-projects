@@ -1,0 +1,122 @@
+Dimension reduction is a method in which the aim is to reduce the number of clusters while keeping as much of explanatory power as possible. There are various algorithms to process dimension reduction, each with with unique properties to suit different data type. In this project I will focus on the principal component analysis method, carried out on the dataset containing variables to explain the cardiovascular heart disease.
+
+```{r}
+library(corrplot)
+library(caret)
+library(factoextra)
+library(gridExtra)
+```
+
+```{r}
+data <- read.csv("cardiovascular.txt", sep = ";")
+```
+
+Missing values?
+
+```{r}
+which(colSums(is.na(data))>0)
+summary(data)
+str(data)
+```
+
+Removing character variables
+
+```{r}
+data <- subset(data, select = -famhist)
+```
+
+Dim?
+
+```{r}
+dim(data)
+```
+
+Scaling
+
+```{r}
+preproc <- preProcess(data, method=c("center", "scale"))
+data_preproc <- predict(preproc, data)
+```
+
+Correlation plot
+
+```{r}
+plot_cor<-cor(data_preproc, method="pearson") 
+print(plot_cor, digits=2)
+corrplot(plot_cor, order ="alphabet", tl.cex=0.6)
+```
+
+As seen on the plot, major positive correlation is present between age and adiposity, obesity and adiposity, tabaco and age.
+
+Loadings into components using prcomp() function which is using the Singular Value Decomposition (SVD)
+
+```{r}
+pca <- prcomp(data_preproc, center=FALSE, scale=FALSE)
+pca$rotation
+```
+
+# What is the optimal number of components?
+
+Eigenvalue (look for the elbow point)
+
+```{r}
+fviz_eig(pca, choice='eigenvalue')
+eig_val<-get_eigenvalue(pca)
+eig_val
+```
+
+Keiser rule (keep the components with eigenvalues highier than 1)
+
+```{r}
+num_components <- sum(eig_val$eigenvalue>1)
+num_components
+```
+
+Cumulative explained varince
+
+```{r}
+plot(cumsum(pca$sdev^2) / sum(pca$sdev^2), type = "b", main = "Cumulative Explained Variance", xlab = "Number of Components", ylab = "Cumulative Variance")
+```
+
+Proportio of variance explained
+
+```{r}
+summary(pca)
+fviz_eig(pca)
+```
+
+The elbow point in eigenvalues scree plot is not the most useful technic in this instance. It would suggest holding two components, explaining only 42% of the variance (poor). The Keiser rule, which says to keep components with eigen values higher than 1 would suggest to hold 4 components. Cumulative variance explained suggests to keep the number of components after which the curve gets flatter, however in this case it is also pretty vague. Last but not least, the analysis of the proportion of variance explained gives a tangible take on the case. If I were to decide to hold 4 variables, it would still keep 65% of variance.
+
+# Component analysis
+
+The below graph show the correlation between the variables. Those which are in the same quadrant are positively correlated while those which are in the opposite quadrants are negatively correlated.
+
+```{r}
+fviz_pca_var(pca, col.var="blue")
+```
+
+Quality of representation by each observation
+
+```{r}
+fviz_pca_ind(pca, col.ind="cos2", geom="point", gradient.cols=c("blue", "red" ))
+```
+
+It is also possible to investigate the contribution of each observation to every component
+
+```{r}
+ind<-get_pca_ind(pca)  
+head(ind$contrib)
+```
+
+Furthermore, one could look at the contribution of variables to every component and potentially based on that define the characteristics of each component
+
+```{r}
+var<-get_pca_var(pca)
+a<-fviz_contrib(pca, "var", axes=1, xtickslab.rt=90) 
+b<-fviz_contrib(pca, "var", axes=2, xtickslab.rt=90)
+c<-fviz_contrib(pca, "var", axes=3, xtickslab.rt=90)
+d<-fviz_contrib(pca, "var", axes=4, xtickslab.rt=90)
+grid.arrange(a,b,c,d,top='Contribution to the first four Principal Components')
+```
+
+In summary, dimension reduction is a powerful tool that allows to reduce the number of variables in the dataset while still keeping as much of the explanatory power as possible. In the case analyzed above, depending on how much of the variance I'd like to keep, I could either reduce the number of variables by 6 and still holding 65% of the variance of or, if I'd like to have a better quality, I could stick with 6 or 7 variables and keep 81% or 87% of the variance respectively.
